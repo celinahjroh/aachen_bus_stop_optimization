@@ -1,5 +1,0 @@
-# Optional: only needed to run the GAMSPy implementation (aachen_model_gamspy.py).
-# GAMSPy requires a working GAMS installation / licence. The pure-Python PuLP
-# pipeline in validation/ reproduces every reported result without it.
--r requirements.txt
-gamspy>=1.26,<2
