@@ -1,4 +1,4 @@
-# Cost-Aware Bus-Stop Placement in Aachen
+# Optimizing Public Transport Coverage in Aachen: Budget-Constrained and Equity-Constrained Bus Stop Location Models
 
 Optimisation code for a study that turns a validated *p*-median analysis of
 bus-stop placement in Aachen into a decision-ready investment framework. The
