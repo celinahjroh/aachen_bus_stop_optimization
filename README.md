@@ -6,17 +6,19 @@ baseline *p*-median model is generalised in two directions:
 
 - **Model I — Cost-budgeted *p*-median with an optional equity floor.** The
   stop-count cap of the baseline is replaced by a monetary budget with
-  heterogeneous, source-based per-candidate construction costs. An optional
-  minimum-coverage requirement guarantees that a chosen share of a spatially
-  defined underserved group reaches a stop within 300 m.
+  heterogeneous per-candidate construction-cost proxies calibrated to documented
+  German municipal cost figures. An optional minimum-coverage requirement
+  guarantees that a chosen share of a spatially defined underserved group reaches
+  a stop within 300 m.
 - **Model II — Net-benefit maximisation.** Walking-time savings are monetised
   using parameters from the German *Standardisierte Bewertung* framework, and
   the model selects the candidate set that maximises discounted access-time
   benefit net of construction cost.
 
-Both models share the same data, candidate set and distance model, so every
-difference between the resulting plans stems from the changed decision logic
-alone.
+Both models retain the inherited demand data, existing platforms, candidate set,
+and distance model. Differences in spatial outcomes are therefore not driven by
+changes to the inherited spatial instance, while the extended analyses additionally
+introduce candidate-cost proxies, POI definitions, and appraisal parameters.
 
 > The monetised ratio computed here is an **access-related** benefit–cost ratio
 > (`access_BCR`). It counts walking-time savings only and is **not** the
@@ -24,7 +26,7 @@ alone.
 
 ## Repository layout
 
-```
+```text
 aachen_bus_stop_optimization/
 ├── aachen_model_gamspy.py        # GAMSPy implementation of both models (+ self-check)
 ├── existing.csv                  # 1,037 existing directional platforms (stop_id,x,y)
@@ -33,7 +35,7 @@ aachen_bus_stop_optimization/
 ├── pois_aachen.csv               #    18 schools & hospitals (name,type,lat,lon)
 ├── requirements.txt              # dependencies for the PuLP pipeline (no GAMS licence)
 ├── requirements-gamspy.txt       # extra dependency for the GAMSPy implementation
-└── validation/                   # pure-Python PuLP pipeline (full analysis + figures)
+└── validation/                   # pure-Python PuLP pipeline (full analysis + selected figures)
     ├── aachen_model.py           #   Model I, KPI panel, budget/equity sweeps, figures
     ├── aachen_cba.py             #   Model II (net benefit) + access-related BCR screening
     └── aachen_final.py           #   POI analysis + integrated four-plan comparison
@@ -54,7 +56,7 @@ selections.
 |---|---|---|
 | Solver | GAMSPy default MIP | CBC via PuLP |
 | Needs a GAMS licence | yes | no |
-| Scope | both models + built-in numeric self-check | full pipeline: sweeps, POI analysis, figures, CSV outputs |
+| Scope | both models + built-in numeric self-check | full pipeline: sweeps, POI analysis, core CSV outputs, and selected analytical figures |
 
 The PuLP pipeline is the portable reference: it reproduces the published
 Katsioupis (2026) baseline exactly and runs without a GAMS licence. The GAMSPy
@@ -83,7 +85,8 @@ Scripts resolve all input and output paths against the repository root, so they
 can be launched from anywhere. From the repository root:
 
 **Full analysis (recommended).** Runs Model I, Model II and the POI /
-integrated comparison, and writes all CSVs and figures:
+integrated comparison, and writes the core CSV outputs and selected analytical
+figures:
 
 ```bash
 python validation/aachen_final.py
@@ -138,7 +141,7 @@ Running the pipeline reproduces the values reported in the study, including:
 | `06_cost_sensitivity.csv` | Robustness of the €360k plan to the ±50 % surcharge test |
 | `07_per_stop_access_BCR.csv` | Isolated access-related BCR of every candidate |
 | `08_plan_comparison_CBA.csv` | Access-related appraisal of the headline plans |
-| `09_CBA_sensitivity.csv` | Net-benefit optimum across trip-rate and discount-rate scenarios |
+| `09_CBA_sensitivity.csv` | Net-benefit optimum across annual access-walk-frequency and discount-rate scenarios |
 | `10_poi_stop_access.csv`, `10b_poi_detail.csv` | Facility-side POI accessibility |
 | `12_final_plan_comparison.csv` | Integrated four-plan comparison on one KPI panel |
 | `selected_stops_*.csv` | Which candidates are opened in each scenario |
