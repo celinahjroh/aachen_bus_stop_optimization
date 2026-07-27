@@ -1,6 +1,7 @@
 # Optimizing Public Transport Coverage in Aachen: Budget-Constrained and Equity-Constrained Bus Stop Location Models
 
 # Cost-Aware Bus-Stop Placement in Aachen
+
 Optimisation code for a study that turns a validated *p*-median analysis of
 bus-stop placement in Aachen into a decision-ready investment framework. The
 baseline *p*-median model is generalised in two directions:
@@ -231,12 +232,15 @@ CSV outputs written to `results/`:
   municipalities.
 - Appraisal parameters: German *Standardisierte Bewertung* (Version 2016+).
 
-## License
+## License and reuse
 
 This repository accompanies an academic project report and is provided for
-review, reproduction and educational use. Code is released under the MIT
-License (see below); the input datasets retain the license/usage terms of
-their original sources (AVV open data, OpenStreetMap/ODbL, and the gridded
-population dataset of Schug et al. [2021]) and are redistributed here only to
-support reproducibility of this study — see Section 3 of the report for full
-provenance and citation of each dataset.
+review, reproduction and educational use in connection with that report. No
+separate software license is granted; please contact the authors for any other
+use.
+
+The input datasets are covered by their own terms in any case. They retain the
+license/usage conditions of their original sources (AVV open data,
+OpenStreetMap/ODbL, and the gridded population dataset of Schug et al. [2021])
+and are redistributed here only to support reproducibility of this study. See
+Section 3 of the report for full provenance and citation of each dataset.
