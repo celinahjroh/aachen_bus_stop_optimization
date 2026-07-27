@@ -1,75 +1,86 @@
 # Optimizing Public Transport Coverage in Aachen: Budget-Constrained and Equity-Constrained Bus Stop Location Models
 
+# Cost-Aware Bus-Stop Placement in Aachen
 Optimisation code for a study that turns a validated *p*-median analysis of
 bus-stop placement in Aachen into a decision-ready investment framework. The
 baseline *p*-median model is generalised in two directions:
 
 - **Model I — Cost-budgeted *p*-median with an optional equity floor.** The
   stop-count cap of the baseline is replaced by a monetary budget with
-  heterogeneous per-candidate construction-cost proxies calibrated to documented
-  German municipal cost figures. An optional minimum-coverage requirement
-  guarantees that a chosen share of a spatially defined underserved group reaches
-  a stop within 300 m.
+  heterogeneous, source-based per-candidate construction costs. An optional
+  minimum-coverage requirement guarantees that a chosen share of a spatially
+  defined underserved group reaches a stop within 300 m.
 - **Model II — Net-benefit maximisation.** Walking-time savings are monetised
   using parameters from the German *Standardisierte Bewertung* framework, and
   the model selects the candidate set that maximises discounted access-time
   benefit net of construction cost.
 
-Both models retain the inherited demand data, existing platforms, candidate set,
-and distance model. Differences in spatial outcomes are therefore not driven by
-changes to the inherited spatial instance, while the extended analyses additionally
-introduce candidate-cost proxies, POI definitions, and appraisal parameters.
+Both models share the same data, candidate set and distance model, so every
+difference between the resulting plans stems from the changed decision logic
+alone.
 
-> The monetised ratio computed here is an **access-related** benefit–cost ratio
-> (`access_BCR`). It counts walking-time savings only and is **not** the
-> statutory German NKV; it establishes nothing about GVFG funding eligibility.
+> The monetised ratio computed here is an **access-related** benefit–cost ratio.
+> It counts walking-time savings only and is **not** the statutory German NKV; it
+> establishes nothing about GVFG funding eligibility.
 
 ## Repository layout
 
-```text
+```
 aachen_bus_stop_optimization/
-├── aachen_model_gamspy.py        # GAMSPy implementation of both models (+ self-check)
+├── aachen_model_gamspy.py        # GAMSPy implementation of both models (+ verification)
 ├── existing.csv                  # 1,037 existing directional platforms (stop_id,x,y)
 ├── candidates.csv                #   141 screened candidate platforms (stop_id,x,y)
 ├── demand.csv                    # 16,984 demand nodes (demand_id,x,y,population,central)
 ├── pois_aachen.csv               #    18 schools & hospitals (name,type,lat,lon)
 ├── requirements.txt              # dependencies for the PuLP pipeline (no GAMS licence)
 ├── requirements-gamspy.txt       # extra dependency for the GAMSPy implementation
-├── figures/                      # the 10 report figures, regenerable (committed)
-├── results/                      # the 4 data-driven LaTeX tables (committed);
-│                                 #   intermediate CSVs are regenerated & git-ignored
-└── validation/                   # pure-Python PuLP pipeline (full analysis + all figures)
-    ├── aachen_model.py           #   Model I, KPI panel, budget/equity sweeps
-    ├── aachen_cba.py             #   Model II (net benefit) + access-related BCR screening
-    ├── aachen_final.py           #   POI analysis + integrated four-plan comparison
-    ├── paper_assets.py           #   every report figure + data-driven LaTeX table
-    └── make_paper_figures.py     #   fast regenerator of all figures/tables from CSVs
+├── validation/                   # independent PuLP/CBC implementation + analysis pipeline
+│   ├── aachen_model.py           #   Model I, KPI panel, budget & equity sweeps
+│   ├── aachen_cba.py             #   Model II (net benefit) + access-related BCR screening
+│   ├── aachen_final.py           #   POI analysis + integrated four-plan comparison
+│   ├── make_paper_figures.py     #   regenerates every figure and LaTeX table of the report
+│   └── paper_assets.py           #   rendering routines used by make_paper_figures.py
+├── figures/                      # rendered report figures (committed, see below)
+└── results/                      # LaTeX tables (committed) + CSV outputs (generated)
 ```
 
 All spatial data use EPSG:25832 (ETRS89 / UTM zone 32N); POI coordinates are
 converted from WGS84 on load. Euclidean distances are scaled by a circuity
-factor `f = 1.3` to approximate walking distance. All monetary quantities are
-handled in kEUR internally (the cost constant `45.0` denotes EUR 45,000).
+factor `f = 1.3` to approximate walking distance.
 
 ## Two implementations
 
-The optimisation core is provided twice. Both encode the same models and, on the
-scenarios cross-validated below, return identical objective values and platform
-selections.
+The optimisation core is provided twice, and the two agree on every reported
+plan and objective value.
+
+`aachen_model_gamspy.py` is the GAMSPy implementation of both models and the
+reference implementation for the optimisation results reported in the study. It
+encodes Model I (budget scenarios and the lexicographic minimum-cost/minimum-
+distance equity construction) and Model II, requires the solver to close the
+relative MIP gap, and accepts a result only when GAMSPy reports
+`OptimalGlobal` — a time-limited feasible incumbent is rejected rather than
+reported.
+
+The `validation/` directory holds a fully independent re-implementation of the
+same models in PuLP, solved with CBC. Its primary purpose is cross-validation:
+the headline budget, equity and net-benefit scenarios are solved in both
+implementations, which return identical objective values and select the same
+candidate platforms, so the reported results are not an artefact of one
+solver or one algebraic encoding. Because it needs no GAMS licence, this
+implementation also carries the surrounding analysis pipeline — the budget and
+equity sweeps, the KPI panel, the sensitivity analyses, and the figure and table
+rendering — which makes the whole study reproducible on any machine.
 
 | | `aachen_model_gamspy.py` | `validation/` (PuLP) |
 |---|---|---|
+| Role | reference implementation of Model I and Model II | independent cross-check + analysis pipeline |
 | Solver | GAMSPy default MIP | CBC via PuLP |
 | Needs a GAMS licence | yes | no |
-| Scope | both models + built-in numeric self-check | full pipeline: sweeps, POI analysis, core CSV outputs, and **all 10 report figures + 4 LaTeX tables** |
+| Scope | both models, headline scenarios, built-in numeric verification | both models, full sweeps, POI analysis, KPIs, figures, tables |
 
-The PuLP pipeline is the portable reference: it reproduces the published
-Katsioupis (2026) baseline exactly and runs without a GAMS licence. The GAMSPy
-file exists to satisfy the project's GAMSPy requirement; its `main()` solves the
-headline **budget**, **underserved-equity**, and **net-benefit** scenarios and
-asserts them against the same reference values the PuLP pipeline produces. The
-POI-priority scenario is produced by the PuLP pipeline (`aachen_final.py`) and is
-not part of the GAMSPy self-check.
+The two also validate different things. The cross-implementation agreement tests
+the *model*; the status-quo run (no new platforms) reproduces the published
+baseline reference values exactly and thereby tests the *data pipeline*.
 
 ## Installation
 
@@ -89,12 +100,19 @@ pip install -r requirements-gamspy.txt
 Scripts resolve all input and output paths against the repository root, so they
 can be launched from anywhere. From the repository root:
 
-**Full analysis (recommended).** Runs Model I, Model II and the POI /
-integrated comparison, and writes the core CSV outputs and selected analytical
-figures:
+**Everything at once (recommended).** Regenerates every figure and every
+data-driven table of the report. If the result CSVs are not present yet it runs
+the full analysis pipeline first (the slow path); on a repository that has
+already been analysed once it finishes in seconds:
 
 ```bash
-python validation/aachen_final.py
+python validation/make_paper_figures.py
+```
+
+**Analysis only**, without re-rendering figures and tables:
+
+```bash
+python validation/aachen_final.py   # Model I + Model II + POI + integrated comparison
 ```
 
 Individual stages (each regenerates its prerequisites if needed):
@@ -102,14 +120,6 @@ Individual stages (each regenerates its prerequisites if needed):
 ```bash
 python validation/aachen_model.py   # Model I: baseline validation, budget & equity sweeps
 python validation/aachen_cba.py     # Model II: net-benefit optimum + per-candidate screening
-```
-
-**Regenerate only the paper figures and tables.** Reads the cached result CSVs
-and re-renders every figure and LaTeX table in a few seconds (runs the full
-pipeline first only if the CSVs are missing):
-
-```bash
-python validation/make_paper_figures.py
 ```
 
 **GAMSPy implementation with built-in verification.** Solves the headline
@@ -120,41 +130,42 @@ values:
 python aachen_model_gamspy.py
 ```
 
-Figures are written to `figures/` and result tables to `results/` in the
-repository root. The 10 report figures and the 4 data-driven LaTeX tables are
-committed; the intermediate result CSVs are regenerated on each run and are
+Runtime depends on hardware: the full PuLP pipeline takes roughly three minutes
+on an Apple Silicon MacBook Air, and each GAMSPy scenario a few seconds.
+
+## Reproduced figures and tables
+
+`validation/make_paper_figures.py` regenerates every figure of the report that
+contains data, under the exact filenames the LaTeX sources reference:
+
+| Report | File | Content |
+|---|---|---|
+| Figure 3.1 | `figures/fig31_data_overview.png` | Spatial overview of all input datasets |
+| Figure 3.2 | `figures/fig32_cost_distribution.png` | Modelled construction-cost distribution |
+| Figure 5.1 | `figures/fig_underserved_map.png` | Underserved central residents at baseline |
+| Figure 5.2 | `figures/fig_pareto_cost_coverage.png` | Central coverage @300 m vs actual expenditure |
+| Figure 5.3 | `figures/fig_avgwalk_budget.png` | Average walking distance vs budget |
+| Figure 5.4 | `figures/fig_price_of_equity.png` | Minimum budget vs required underserved coverage τ |
+| Figure 5.5 | `figures/fig_poi_catchments.png` | Facility catchments and the structural ceiling |
+| Figure 6.1 | `figures/fig_plan_maps.png` | The two headline plans over the underserved population |
+| Figure 6.2 | `figures/final_who_benefits.png` | Coverage by population group under each plan |
+| Figure 6.3 | `figures/fig_nkv_map.png` | Per-candidate access-related benefit–cost ratio |
+| Table 5.1 | `results/table_sweep.tex` | Cost-aware budget sweep |
+| Table 5.2 | `results/table_equity.tex` | The price of equity |
+| Table 6.1 | `results/table_final.tex` | Integrated four-plan comparison |
+| Table A.1 | `results/table_poi.tex` | Points of interest and baseline platform walk |
+
+Figures 4.1 (analysis framework) and 7.1 (staged investment recommendation) are
+schematic diagrams drawn directly in LaTeX/TikZ and contain no computed data, so
+they are deliberately not produced here. Every other figure and every
+data-driven table in the report comes out of the pipeline above.
+
+A rendered copy of the ten figures and four LaTeX tables is committed to the
+repository so they can be inspected without running anything. The numbered CSV
+outputs listed below are intermediate artefacts, regenerated on each run and
 git-ignored.
 
-## Report figures and tables
-
-Running the pipeline (or `make_paper_figures.py`) writes every figure and every
-data-driven table under the exact filename the report references. The TikZ
-roadmap (Ch. 6) is drawn directly in LaTeX and is not produced here.
-
-| Report reference | Generated file | Produced by |
-|---|---|---|
-| Fig. 3.1 data overview | `figures/fig31_data_overview.png` | `aachen_final.py` |
-| Fig. 3.2 cost distribution | `figures/fig32_cost_distribution.png` | `aachen_model.py` |
-| Fig. underserved map | `figures/fig_underserved_map.png` | `aachen_model.py` |
-| Fig. cost–coverage Pareto | `figures/fig_pareto_cost_coverage.png` | `aachen_model.py` |
-| Fig. avg. walk vs budget | `figures/fig_avgwalk_budget.png` | `aachen_model.py` |
-| Fig. price of equity | `figures/fig_price_of_equity.png` | `aachen_model.py` |
-| Fig. POI catchments | `figures/fig_poi_catchments.png` | `aachen_final.py` |
-| Fig. plan maps | `figures/fig_plan_maps.png` | `aachen_final.py` |
-| Fig. who benefits | `figures/final_who_benefits.png` | `aachen_final.py` |
-| Fig. per-candidate BCR | `figures/fig_nkv_map.png` | `aachen_final.py` |
-| Table budget sweep (`tab:sweep`) | `results/table_sweep.tex` | `aachen_model.py` |
-| Table price of equity (`tab:equity`) | `results/table_equity.tex` | `aachen_model.py` |
-| Table integrated comparison (`tab:final`) | `results/table_final.tex` | `aachen_final.py` |
-| Table appendix POI list (`tab:poilist`) | `results/table_poi.tex` | `aachen_final.py` |
-
-All figure/table rendering lives in `validation/paper_assets.py`, which never
-solves a model: it receives the already-computed arrays and result tables and
-only draws them, so the figures cannot drift from the optimisation output.
-
-## Reproduced key figures
-
-Running the pipeline reproduces the values reported in the study, including:
+## Reproduced key values
 
 | Quantity | Value |
 |---|---|
@@ -164,31 +175,32 @@ Running the pipeline reproduces the values reported in the study, including:
 | Central coverage @200 / 300 m | 68.15 % / 91.36 % |
 | Underserved central residents (>300 m) | 6,032 |
 | Admissible demand–candidate pairs | 5,197 |
+| Demand cells admitting any improvement | 850 |
 | Candidate construction cost min / mean / max | €45k / €74.3k / €100k |
-| Cost-aware plan @€360k | platforms {1050, 1072, 1082, 1089}, central cov@300 = 94.5 % |
-| Cost-aware plan @€450k | platforms {1050, 1072, 1082, 1089, 1093}, central cov@300 = 95.2 % |
+| Cost-aware plan @€360k | platforms {1050, 1072, 1082, 1089}, spend €350k, central cov@300 = 94.5 % |
 | Equity-first plan (τ = 50 %) | platforms {1050, 1065, 1089, 1092, 1123, 1159}, C\* = €450k, cov@300 = 95.7 % |
+| POI-priority plan | platforms {1063, 1092}, spend €160k, POI-underserved cov = 14.4 % |
 | Net-benefit optimum | 43 platforms, cost €3.44M, benefit €16.13M, access BCR = 4.7 |
 | Candidates with isolated access-BCR ≥ 1 | 136 of 141 |
+| Structural coverage ceilings (underserved / POI-underserved) | 77.9 % / 18.0 % |
 
 ## Output files
 
+CSV outputs written to `results/`:
+
 | File | Contents |
 |---|---|
-| `00_baseline_validation.csv` | Status-quo KPIs; reproduces the Katsioupis (2026) baseline |
+| `00_baseline_validation.csv` | Status-quo KPIs; reproduces the baseline reference values |
 | `01_pareto_costblind.csv` / `02_pareto_costaware.csv` | Budget sweeps under homogeneous vs heterogeneous costs |
 | `03_equity_scenarios.csv` | Minimum budget per underserved-coverage target τ |
-| `05_cost_effectiveness.csv` | Marginal €/coverage-point along the sweep (reference scale, not a unique knee) |
-| `06_cost_sensitivity.csv` | Robustness of the €360k plan to the ±50 % surcharge test, including selected platform IDs |
+| `05_cost_effectiveness.csv` | Marginal €/coverage-point along the sweep |
+| `06_cost_sensitivity.csv` | Robustness of the €360k plan to the ±50 % surcharge test |
 | `07_per_stop_access_BCR.csv` | Isolated access-related BCR of every candidate |
 | `08_plan_comparison_CBA.csv` | Access-related appraisal of the headline plans |
-| `09_CBA_sensitivity.csv` | Net-benefit optimum across annual access-walk-frequency and discount-rate scenarios |
+| `09_CBA_sensitivity.csv` | Net-benefit optimum across trip-rate and discount-rate scenarios |
 | `10_poi_stop_access.csv`, `10b_poi_detail.csv` | Facility-side POI accessibility |
 | `12_final_plan_comparison.csv` | Integrated four-plan comparison on one KPI panel |
 | `selected_stops_*.csv` | Which candidates are opened in each scenario |
-| `table_sweep.tex`, `table_equity.tex`, `table_final.tex`, `table_poi.tex` | Data-driven LaTeX tables of the report, incl. the appendix POI list (committed) |
-
-The code deliberately does not calculate an automatic “recommended budget” from these marginal values. The €450k reference scale used in the study is tied to the 50% underserved-coverage target and the observed transition toward smaller aggregate gains, not to a unique algorithmic knee.
 
 ## Notes and caveats
 
@@ -199,11 +211,11 @@ The code deliberately does not calculate an automatic “recommended budget” f
   calibrated to documented German municipal figures, not a surveyed schedule.
   Plan *compositions* are considerably better supported than plan *prices*; the
   ±50 % surcharge sensitivity (`06_*`) bounds the latter.
-- **Access-time appraisal only.** The BCR monetises walking-time savings alone.
-  It omits effects on both sides of the ledger (induced ridership and emissions
-  on the benefit side; operating, in-vehicle-time and maintenance cost on the
-  cost side), so its net direction is undetermined and it is not the statutory
-  NKV.
+- **Pairing rule.** The €15k solo surcharge is exempted whenever another
+  candidate lies within 40 m, evaluated on the candidate *set* rather than on the
+  selected plan. Where a plan opens only one member of a pair, the shared
+  mobilisation does not occur and the cost is understated; 54 of the 141
+  candidates are classified as paired.
 - **Scope.** The models site platforms only. Routing, frequencies, timetables
   and the operating consequences of new stopping events are out of scope, as in
   the baseline.
@@ -218,3 +230,13 @@ The code deliberately does not calculate an automatic “recommended budget” f
 - Cost levels: documented barrier-free stop-construction projects in German
   municipalities.
 - Appraisal parameters: German *Standardisierte Bewertung* (Version 2016+).
+
+## License
+
+This repository accompanies an academic project report and is provided for
+review, reproduction and educational use. Code is released under the MIT
+License (see below); the input datasets retain the license/usage terms of
+their original sources (AVV open data, OpenStreetMap/ODbL, and the gridded
+population dataset of Schug et al. [2021]) and are redistributed here only to
+support reproducibility of this study — see Section 3 of the report for full
+provenance and citation of each dataset.
